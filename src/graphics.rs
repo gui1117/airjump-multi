@@ -327,23 +327,12 @@ impl Graphics {
             .unwrap();
 
         if let Some(image) = world.write_resource::<::resource::DrawImage>().take() {
-            // println!("toto");
-            // let trans: ::na::Transform2<f32> = ::na::one();
-            // let a = trans.unwrap().into();
-            // println!("{:?}", a);
-            // let trans = self.transform_buffer_pool.next(vs::ty::Transform {
-            //     isometry: a,
-            //     z: 1.0,
-            //     _dummy0: [0; 12],
-            // }).unwrap();
-        let view = self.view_buffer_pool.next(vs::ty::View {
-            view: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-        }).unwrap();
-        let trans = self.transform_buffer_pool.next(vs::ty::Transform {
-            isometry: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-            z: 0.0,
-            _dummy0: [0; 12],
-        }).unwrap();
+            let trans: ::na::Transform2<f32> = ::na::one();
+            let trans = self.transform_buffer_pool.next(vs::ty::Transform {
+                trans: trans.unwrap().into(),
+                z: 1.0,
+                _dummy0: [0; 12],
+            }).unwrap();
 
             let set = self.sets_pool.next()
                 .add_buffer(trans)
@@ -382,7 +371,7 @@ layout(location = 0) in vec2 position;
 layout(location = 0) out vec2 tex_coords;
 
 layout(set = 0, binding = 0) uniform Transform {
-    mat3 isometry;
+    mat3 trans;
     float z;
 } transform;
 
@@ -391,16 +380,9 @@ layout(set = 0, binding = 2) uniform View {
 } view;
 
 void main() {
-    // vec3 p = transform.isometry * vec3(position, 1.0);//view.view * transform.isometry * vec3(position, 1.0);
-    // gl_Position = vec4(p[0], p[1], transform.z, 1.0);
-
+    gl_Position = mat4(view.view) * mat4(transform.trans) * vec4(position, transform.z, 1.0);
     // // https://matthewwellings.com/blog/the-new-vulkan-coordinate-system/
     // gl_Position.y = -gl_Position.y;
-
-    gl_Position = vec4(position, 0.0, 1.0);
-    if (0.0 == transform.isometry[1][1]) {
-        gl_Position.x = -gl_Position.x;
-    }
     tex_coords = position + vec2(0.5);
 }
 "]
