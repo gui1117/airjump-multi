@@ -8,23 +8,20 @@ environment:
   - TARGET: x86_64-pc-windows-msvc
 
 install:
-- cmd: >-
-    echo %TARGET%
-    appveyor DownloadFile https://static.rust-lang.org/dist/rust-beta-%TARGET%.exe
-    rust-beta-%TARGET%.exe /VERYSILENT /NORESTART /DIR="C:\Program Files (x86)\Rust"
-    SET PATH=%PATH%;C:\Program Files (x86)\Rust\bin
-    SET PATH=%PATH%;C:\MinGW\bin
-    rustc -V
-    cargo -V
+- appveyor DownloadFile https://static.rust-lang.org/dist/rust-beta-%TARGET%.exe
+- rust-beta-%TARGET%.exe /VERYSILENT /NORESTART /DIR="C:\Program Files (x86)\Rust"
+- SET PATH=%PATH%;C:\Program Files (x86)\Rust\bin
+- SET PATH=%PATH%;C:\MinGW\bin
+- rustc -V
+- cargo -V
 
 cache:
 - target
 - C:\Users\appveyor\.cargo\registry
 
 build_script:
-- cmd: >-
-    cargo build --target %TARGET% --release
-    move target\%TARGET%\release\airjump-multi.exe airjump-multi-%TARGET%.exe
+- cargo build --target %TARGET% --release
+- move target\%TARGET%\release\airjump-multi.exe airjump-multi-%TARGET%.exe
 
 artifacts:
 - path: airjump-multi-%TARGET%.exe
