@@ -24,7 +24,16 @@ pub struct Start;
 
 impl GameState for Start {
     fn update(self: Box<Self>, world: &mut specs::World) -> Box<GameState> {
-        world.write_resource::<::resource::DrawImage>().0 = Some(::Image::Start);
+        let controls = world.read_storage::<::component::Control>();
+        let count = controls.join().count();
+        if count == 0 {
+            world.write_resource::<::resource::DrawImage>().0 = Some(::Image::Start);
+        } else if count == 1 {
+            world.write_resource::<::resource::DrawImage>().0 = Some(::Image::Wait);
+        } else {
+            eprintln!("invalid state");
+            return Box::new(Play);
+        }
         self
     }
     fn event(self: Box<Self>, event: gilrs::ev::Event, _world: &mut specs::World)
@@ -143,7 +152,7 @@ pub struct Play;
 impl GameState for Play {
     fn update(self: Box<Self>, world: &mut specs::World) -> Box<GameState> {
         let controls = world.read_storage::<::component::Control>();
-        if controls.join().count() == 0 {
+        if controls.join().count() < 2 {
             return Box::new(Start)
         }
         self
@@ -172,9 +181,10 @@ impl GameState for Play {
     {
         let controls = world.read_storage::<::component::Control>();
         let bodies = world.read_storage::<::component::RigidBody>();
+        let mut airjumps = world.write_storage::<::component::Airjump>();
         let mut physic_world = world.write_resource::<::resource::PhysicWorld>();
 
-        for (c, body) in (&controls, &bodies).join().filter(|(c, _)| c.gamepad_id == id) {
+        for (c, airjump, body) in (&controls, &mut airjumps, &bodies).join().filter(|(c, _, _)| c.gamepad_id == id) {
             let body = body.get_mut(&mut physic_world);
             // Set angle
             let mut v = ::na::Vector2::new(0.0, 0.0);
@@ -197,8 +207,11 @@ impl GameState for Play {
             if (gamepad.is_pressed(gilrs::ev::Button::LeftTrigger) && c.parts[0])
                 || (gamepad.is_pressed(gilrs::ev::Button::RightTrigger) && c.parts[1])
             {
-                let angle = body.position().rotation.angle();
-                body.set_velocity(nphysics2d::math::Velocity::linear(angle.cos()*entity::BALL_VELOCITY, angle.sin()*entity::BALL_VELOCITY));
+                if airjump.0 {
+                    airjump.0 = false;
+                    let angle = body.position().rotation.angle();
+                    body.set_velocity(nphysics2d::math::Velocity::linear(angle.cos()*entity::BALL_VELOCITY, angle.sin()*entity::BALL_VELOCITY));
+                }
             }
         }
         self

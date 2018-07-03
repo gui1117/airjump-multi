@@ -46,7 +46,26 @@ impl<'a> specs::System<'a> for PhysicSystem {
                         contactor.push(e1);
                     }
                 }
-                _ => (),
+                &ncollide2d::events::ContactEvent::Stopped(coh1, coh2) => {
+                    let bh1 = collision_world
+                        .collision_object(coh1)
+                        .unwrap()
+                        .data()
+                        .body();
+                    let bh2 = collision_world
+                        .collision_object(coh2)
+                        .unwrap()
+                        .data()
+                        .body();
+                    let e1 = *bodies_map.get(&bh1).unwrap();
+                    let e2 = *bodies_map.get(&bh2).unwrap();
+                    if let Some(contactor) = contactors.get_mut(e1) {
+                        contactor.retain(|&e| e != e2);
+                    }
+                    if let Some(contactor) = contactors.get_mut(e2) {
+                        contactor.retain(|&e| e != e1);
+                    }
+                }
             }
         }
     }

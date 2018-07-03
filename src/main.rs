@@ -31,6 +31,7 @@ mod retained_storage;
 #[derive(EnumIterator, Eq, PartialEq, Hash, Clone, Copy)]
 pub enum Image {
     Start,
+    Wait,
     NewController,
     NewControllerSkip,
     NewController1,
@@ -43,6 +44,7 @@ impl Image {
     pub fn data(&self) -> &[u8] {
         match self {
             Image::Start => include_bytes!("../assets/Start.png"),
+            Image::Wait => include_bytes!("../assets/Wait.png"),
             Image::NewController => include_bytes!("../assets/NewController.png"),
             Image::NewControllerSkip => include_bytes!("../assets/NewControllerSkip.png"),
             Image::NewController1 => include_bytes!("../assets/NewController1.png"),
@@ -79,6 +81,9 @@ fn main() {
     let mut graphics = graphics::Graphics::new(&events_loop);
     let mut gilrs = gilrs::Gilrs::new().unwrap();
 
+    let mut physic_world = ::resource::PhysicWorld::new();
+    physic_world.set_gravity(nphysics2d::math::Vector::new(0.0, entity::GRAVITY));
+
     let mut world = specs::World::new();
     world.register::<::component::RigidBody>();
     world.register::<::component::Contactor>();
@@ -89,7 +94,7 @@ fn main() {
     world.add_resource(::resource::UpdateTime(0.0));
     world.add_resource(::resource::DrawImage(None));
     world.add_resource(::resource::BodiesMap::new());
-    world.add_resource(::resource::PhysicWorld::new());
+    world.add_resource(physic_world);
     let mut update_dispatcher = specs::DispatcherBuilder::new()
         .with(::system::PhysicSystem, "physic", &[])
         .with(::system::AirjumpSystem, "airjump", &["physic"])
@@ -97,6 +102,7 @@ fn main() {
 
     entity::create_gong(&mut world);
     entity::create_ground(&mut world);
+    entity::create_walls(&mut world);
 
     let mut last_frame_instant = std::time::Instant::now();
     let mut last_update_instant = std::time::Instant::now();
@@ -151,6 +157,7 @@ fn main() {
             // pause_dispatcher.dispatch(&mut world.res);
         }
         state = state.update(&mut world);
+        safe_maintain(&mut world);
 
         // Draw world
         graphics.render(&mut world);

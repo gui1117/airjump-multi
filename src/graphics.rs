@@ -370,21 +370,20 @@ impl Graphics {
         trans[(1, 1)] *= 2.0;
         cb = draw_image(::Image::Wallpaper, trans, 0.0, cb);
 
-        if let Some(image) = world.write_resource::<::resource::DrawImage>().take() {
-            let mut trans: ::na::Transform2<f32> = ::na::one();
-            cb = draw_image(image, trans, 1.0, cb);
-        }
-
         let bodies = world.read_storage::<::component::RigidBody>();
         let images = world.read_storage::<::component::Image>();
         let physic_world = world.read_resource::<::resource::PhysicWorld>();
         for (image, body) in (&images, &bodies).join() {
-            let mut trans: ::na::Transform2<f32> = body.get(&physic_world)
-                .position()
-                .to_superset();
-            trans[(0, 0)] *= image.0;
-            trans[(1, 1)] *= image.0;
+            let mut trans: ::na::Transform2<f32> = ::na::Similarity2::from_isometry(
+                body.get(&physic_world).position(),
+                image.0*2.0,
+            ).to_superset();
             cb = draw_image(image.1, trans, 1.0, cb);
+        }
+
+        if let Some(image) = world.write_resource::<::resource::DrawImage>().take() {
+            let mut trans: ::na::Transform2<f32> = ::na::one();
+            cb = draw_image(image, trans, 1.0, cb);
         }
 
         cb.end_render_pass()
