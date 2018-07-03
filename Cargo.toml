@@ -21,8 +21,3 @@ derive_deref = "1"
 enum-iterator-derive = "0.1"
 specs-derive = "0.2"
 nalgebra = "0.14"
-
-# [replace]
-# "vulkano-win:0.9.0" = { git = "https://github.com/thiolliere/vulkano" }
-# "vulkano:0.9.0" = { git = "https://github.com/thiolliere/vulkano" }
-# "vulkano-shader-derive:0.9.0" = { git = "https://github.com/thiolliere/vulkano" }
