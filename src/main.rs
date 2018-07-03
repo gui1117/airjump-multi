@@ -113,7 +113,7 @@ fn main() {
         let mut done = false;
         events_loop.poll_events(|ev| match ev {
             winit::Event::WindowEvent {
-                event: winit::WindowEvent::CloseRequested,
+                event: winit::WindowEvent::Closed,
                 ..
             } |
             winit::Event::WindowEvent {
