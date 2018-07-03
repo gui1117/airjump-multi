@@ -7,6 +7,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "airjump-multi"
 version = "0.1.0"
 dependencies = [
+ "alga 0.5.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "derive_deref 1.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "enum-iterator-derive 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv 1.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -14,6 +15,7 @@ dependencies = [
  "hibitset 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "image 0.19.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.14.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "ncollide2d 0.15.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "nphysics2d 0.8.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "specs 0.12.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "specs-derive 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",

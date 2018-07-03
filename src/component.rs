@@ -2,8 +2,18 @@ use specs::prelude::*;
 
 #[derive(Component)]
 #[storage(VecStorage)]
-pub struct Controlled {
+pub struct Airjump(pub bool);
+
+#[derive(Component, Default)]
+#[storage(NullStorage)]
+pub struct AirjumpRestorer;
+
+#[derive(Component)]
+#[storage(VecStorage)]
+pub struct Control {
     pub gamepad_id: usize,
+    /// Which part of the controller controls
+    pub parts: [bool; 2],
 }
 
 // pub struct CollisionSound {
@@ -68,3 +78,7 @@ impl RigidBody {
             .expect("Rigid body in specs does not exist in physic world")
     }
 }
+
+#[derive(Deref, DerefMut, Component)]
+#[storage(VecStorage)]
+pub struct Contactor(pub Vec<Entity>);

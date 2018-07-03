@@ -1,9 +1,12 @@
 use gilrs;
 use specs;
+use specs::Join;
+use nphysics2d;
+use entity;
 
 pub trait GameState {
     fn update(self: Box<Self>, world: &mut specs::World) -> Box<GameState>;
-    fn event(self: Box<Self>, event: gilrs::EventType, world: &mut specs::World)
+    fn event(self: Box<Self>, event: gilrs::ev::Event, world: &mut specs::World)
         -> Box<GameState>;
     fn gamepad(
         self: Box<Self>,
@@ -24,19 +27,19 @@ impl GameState for Start {
         world.write_resource::<::resource::DrawImage>().0 = Some(::Image::Start);
         self
     }
-    fn event(self: Box<Self>, _event: gilrs::EventType, _world: &mut specs::World)
+    fn event(self: Box<Self>, event: gilrs::ev::Event, _world: &mut specs::World)
         -> Box<GameState>
     {
-        self
+        Box::new(NewController { id: event.id })
     }
     fn gamepad(
         self: Box<Self>,
-        id: usize,
+        _id: usize,
         _gamepad: &::gilrs::Gamepad,
         _world: &mut specs::World,
     ) -> Box<GameState>
     {
-        Box::new(NewController { id })
+        self
     }
     fn paused(&self) -> bool {
         true
@@ -52,31 +55,40 @@ impl GameState for NewController {
         world.write_resource::<::resource::DrawImage>().0 = Some(::Image::NewController);
         self
     }
-    fn event(self: Box<Self>, _event: gilrs::EventType, _world: &mut specs::World)
+    fn event(self: Box<Self>, event: gilrs::ev::Event, world: &mut specs::World)
         -> Box<GameState>
     {
-        self
-    }
-    fn gamepad(
-        self: Box<Self>,
-        id: usize,
-        gamepad: &::gilrs::Gamepad,
-        _world: &mut specs::World,
-    ) -> Box<GameState>
-    {
-        if id == self.id {
-            if gamepad.is_pressed(gilrs::ev::Button::West) {
-                Box::new(ShowImage::new(::Image::NewController1))
-            } else if gamepad.is_pressed(gilrs::ev::Button::South) {
-                Box::new(ShowImage::new(::Image::NewController2))
-            } else if gamepad.is_pressed(gilrs::ev::Button::East) {
-                Box::new(ShowImage::new(::Image::NewControllerSkip))
-            } else {
-                self
+        if event.id == self.id {
+            match event.event {
+                gilrs::ev::EventType::Disconnected => {
+                    Box::new(Play)
+                },
+                gilrs::ev::EventType::ButtonPressed(gilrs::ev::Button::West, _) => {
+                    entity::create_ball(event.id, [true, true], world);
+                    Box::new(ShowImage::new(::Image::NewController1))
+                },
+                gilrs::ev::EventType::ButtonPressed(gilrs::ev::Button::South, _) => {
+                    entity::create_ball(event.id, [true, false], world);
+                    entity::create_ball(event.id, [false, true], world);
+                    Box::new(ShowImage::new(::Image::NewController2))
+                },
+                gilrs::ev::EventType::ButtonPressed(gilrs::ev::Button::East, _) => {
+                    Box::new(ShowImage::new(::Image::NewControllerSkip))
+                },
+                _ => self
             }
         } else {
             self
         }
+    }
+    fn gamepad(
+        self: Box<Self>,
+        _id: usize,
+        _gamepad: &::gilrs::Gamepad,
+        _world: &mut specs::World,
+    ) -> Box<GameState>
+    {
+        self
     }
     fn paused(&self) -> bool {
         true
@@ -107,7 +119,7 @@ impl GameState for ShowImage {
             self
         }
     }
-    fn event(self: Box<Self>, _event: gilrs::EventType, _world: &mut specs::World)
+    fn event(self: Box<Self>, _event: gilrs::ev::Event, _world: &mut specs::World)
         -> Box<GameState>
     {
         self
@@ -129,21 +141,66 @@ impl GameState for ShowImage {
 pub struct Play;
 
 impl GameState for Play {
-    fn update(self: Box<Self>, _world: &mut specs::World) -> Box<GameState> {
+    fn update(self: Box<Self>, world: &mut specs::World) -> Box<GameState> {
+        let controls = world.read_storage::<::component::Control>();
+        if controls.join().count() == 0 {
+            return Box::new(Start)
+        }
         self
     }
-    fn event(self: Box<Self>, _event: gilrs::EventType, _world: &mut specs::World)
+    fn event(self: Box<Self>, event: gilrs::ev::Event, world: &mut specs::World)
         -> Box<GameState>
     {
+        let controls = world.read_storage::<::component::Control>();
+        let entities = world.entities();
+        if controls.join().filter(|c| c.gamepad_id == event.id).next().is_none() {
+            return Box::new(NewController { id: event.id })
+        }
+        if event.event == gilrs::ev::EventType::Disconnected {
+            for (_, entity) in (&controls, &*entities).join().filter(|(c, _)| c.gamepad_id == event.id) {
+                entities.delete(entity).unwrap();
+            }
+        }
         self
     }
     fn gamepad(
         self: Box<Self>,
-        _id: usize,
-        _gamepad: &::gilrs::Gamepad,
-        _world: &mut specs::World,
+        id: usize,
+        gamepad: &::gilrs::Gamepad,
+        world: &mut specs::World,
     ) -> Box<GameState>
     {
+        let controls = world.read_storage::<::component::Control>();
+        let bodies = world.read_storage::<::component::RigidBody>();
+        let mut physic_world = world.write_resource::<::resource::PhysicWorld>();
+
+        for (c, body) in (&controls, &bodies).join().filter(|(c, _)| c.gamepad_id == id) {
+            let body = body.get_mut(&mut physic_world);
+            // Set angle
+            let mut v = ::na::Vector2::new(0.0, 0.0);
+            if c.parts[0] {
+                v[0] += gamepad.value(gilrs::ev::Axis::LeftStickX);
+                v[1] += gamepad.value(gilrs::ev::Axis::LeftStickY);
+            }
+            if c.parts[1] {
+                v[0] += gamepad.value(gilrs::ev::Axis::RightStickX);
+                v[1] += gamepad.value(gilrs::ev::Axis::RightStickY);
+            }
+            if let Some(v) = v.try_normalize(0.0001) {
+                let current_angle = body.position().rotation.angle();
+                let next_angle = -v[1].atan2(v[0]);
+                body.apply_displacement(&nphysics2d::math::Velocity::angular(next_angle - current_angle));
+            }
+
+            // Jump
+            // IDEA: add to velocity instead of reset it
+            if (gamepad.is_pressed(gilrs::ev::Button::LeftTrigger) && c.parts[0])
+                || (gamepad.is_pressed(gilrs::ev::Button::RightTrigger) && c.parts[1])
+            {
+                let angle = body.position().rotation.angle();
+                body.set_velocity(nphysics2d::math::Velocity::linear(angle.cos()*entity::BALL_VELOCITY, angle.sin()*entity::BALL_VELOCITY));
+            }
+        }
         self
     }
     fn paused(&self) -> bool {

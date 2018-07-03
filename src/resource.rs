@@ -9,9 +9,7 @@ pub type PhysicWorld = ::nphysics2d::world::World<f32>;
 pub struct BodiesMap(::fnv::FnvHashMap<::nphysics2d::object::BodyHandle, ::specs::Entity>);
 
 impl BodiesMap {
-    pub fn new(ground: ::specs::Entity) -> Self {
-        let mut map = ::fnv::FnvHashMap::default();
-        map.insert(::nphysics2d::object::BodyHandle::ground(), ground);
-        BodiesMap(map)
+    pub fn new() -> Self {
+        BodiesMap(::fnv::FnvHashMap::default())
     }
 }

@@ -4,6 +4,8 @@ extern crate gilrs;
 extern crate winit;
 extern crate specs;
 extern crate nphysics2d;
+extern crate ncollide2d;
+extern crate alga;
 extern crate fnv;
 #[macro_use]
 extern crate derive_deref;
@@ -35,6 +37,7 @@ pub enum Image {
     NewController2,
     Wallpaper,
     Ball,
+    Gong,
 }
 impl Image {
     pub fn data(&self) -> &[u8] {
@@ -46,6 +49,7 @@ impl Image {
             Image::NewController2 => include_bytes!("../assets/NewController2.png"),
             Image::Wallpaper => include_bytes!("../assets/Wallpaper.png"),
             Image::Ball => include_bytes!("../assets/Ball.png"),
+            Image::Gong => include_bytes!("../assets/Gong.png"),
         }
     }
 }
@@ -76,10 +80,23 @@ fn main() {
     let mut gilrs = gilrs::Gilrs::new().unwrap();
 
     let mut world = specs::World::new();
+    world.register::<::component::RigidBody>();
+    world.register::<::component::Contactor>();
+    world.register::<::component::Airjump>();
+    world.register::<::component::AirjumpRestorer>();
+    world.register::<::component::Control>();
+    world.register::<::component::Image>();
     world.add_resource(::resource::UpdateTime(0.0));
     world.add_resource(::resource::DrawImage(None));
+    world.add_resource(::resource::BodiesMap::new());
+    world.add_resource(::resource::PhysicWorld::new());
     let mut update_dispatcher = specs::DispatcherBuilder::new()
+        .with(::system::PhysicSystem, "physic", &[])
+        .with(::system::AirjumpSystem, "airjump", &["physic"])
         .build();
+
+    entity::create_gong(&mut world);
+    entity::create_ground(&mut world);
 
     let mut last_frame_instant = std::time::Instant::now();
     let mut last_update_instant = std::time::Instant::now();
@@ -110,7 +127,7 @@ fn main() {
         }
         while let Some(ev) = gilrs.next_event() {
             gilrs.update(&ev);
-            state = state.event(ev.event, &mut world);
+            state = state.event(ev, &mut world);
         }
         for (id, gamepad) in gilrs.gamepads() {
             state = state.gamepad(id, gamepad, &mut world);

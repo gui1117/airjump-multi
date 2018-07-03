@@ -1,12 +1,14 @@
 use vulkano;
-use specs;
 use winit;
 use image;
 use vulkano::sync::GpuFuture;
 use vulkano_win::VkSurfaceBuild;
-use std::sync::Arc;
 use vulkano_win;
+use specs;
+use specs::Join;
 use std::collections::HashMap;
+use std::sync::Arc;
+use alga::general::SubsetOf;
 
 #[derive(Debug, Clone)]
 struct Vertex {
@@ -28,10 +30,19 @@ pub struct Graphics {
     vertex_buffer: Arc<vulkano::buffer::CpuAccessibleBuffer<[Vertex]>>,
     transform_buffer_pool: vulkano::buffer::CpuBufferPool<vs::ty::Transform>,
     view_buffer_pool: vulkano::buffer::CpuBufferPool<vs::ty::View>,
-    textures: HashMap<::Image, Arc<vulkano::image::ImageViewAccess + Sync + Send>>,
+    textures: HashMap<::Image, (u32, u32, Arc<vulkano::image::ImageViewAccess + Sync + Send>)>,
     sets_pool: vulkano::descriptor::descriptor_set::FixedSizeDescriptorSetsPool<Arc<vulkano::descriptor::pipeline_layout::PipelineLayoutAbstract + Sync + Send>>,
     dimensions: [u32; 2],
     sampler: Arc<vulkano::sampler::Sampler>,
+}
+
+fn mat4(mat3: [[f32; 3]; 3]) -> [[f32; 4]; 4] {
+    [
+        [mat3[0][0], mat3[0][1], 0.0, mat3[0][2]],
+        [mat3[1][0], mat3[1][1], 0.0, mat3[1][2]],
+        [       0.0,        0.0, 1.0,        0.0],
+        [mat3[2][0], mat3[2][1], 0.0, mat3[2][2]],
+    ]
 }
 
 impl Graphics {
@@ -158,19 +169,21 @@ impl Graphics {
                 image::ImageFormat::PNG,
             ).unwrap()
                 .to_rgba();
-            let dim = vulkano::image::Dimensions::Dim2d {
-                width: image_load.width(),
-                height: image_load.height(),
-            };
+
+            let w = image_load.width();
+            let h = image_load.height();
             let image_data = image_load.into_raw().clone();
 
             let (texture, future) = vulkano::image::immutable::ImmutableImage::from_iter(
                 image_data.iter().cloned(),
-                dim,
+                vulkano::image::Dimensions::Dim2d {
+                    width: w,
+                    height: h,
+                },
                 vulkano::format::R8G8B8A8Srgb,
                 queue.clone(),
             ).unwrap();
-            textures.insert(image, texture as Arc<_>);
+            textures.insert(image, (w, h, texture as Arc<_>));
             previous_frame_end = Box::new(previous_frame_end.join(future)) as Box<_>;
         }
 
@@ -296,13 +309,11 @@ impl Graphics {
     }
 
     fn build_command_buffer(&mut self, image_num: usize, world: &mut specs::World) -> vulkano::command_buffer::AutoCommandBuffer {
-        let view: ::na::Transform2<f32> = ::na::one();
-        // resizer[(0, 0)] = x;
-        // resizer[(1, 1)] = y;
-        // resizer[(2, 2)] = z;
+        let mut view: ::na::Transform2<f32> = ::na::one();
+        view[(0, 0)] = self.dimensions[1] as f32/self.dimensions[0] as f32;
 
         let view = self.view_buffer_pool.next(vs::ty::View {
-            view: view.unwrap().into(),
+            view: mat4(view.unwrap().into()),
         }).unwrap();
 
         let state = vulkano::command_buffer::DynamicState {
@@ -326,32 +337,54 @@ impl Graphics {
             )
             .unwrap();
 
-        if let Some(image) = world.write_resource::<::resource::DrawImage>().take() {
-            let trans: ::na::Transform2<f32> = ::na::one();
+        let mut draw_image = |image, mut trans: ::na::Transform2<f32>, z: f32, cb: vulkano::command_buffer::AutoCommandBufferBuilder<vulkano::command_buffer::pool::standard::StandardCommandPoolBuilder>| {
+            let ref texture = self.textures[&image];
+            trans[(0, 0)] *= texture.0 as f32/ texture.1 as f32;
             let trans = self.transform_buffer_pool.next(vs::ty::Transform {
-                trans: trans.unwrap().into(),
-                z: 1.0,
-                _dummy0: [0; 12],
+                trans: mat4(trans.unwrap().into()),
+                z,
             }).unwrap();
 
             let set = self.sets_pool.next()
                 .add_buffer(trans)
                 .unwrap()
-                .add_sampled_image(self.textures[&image].clone(), self.sampler.clone())
+                .add_sampled_image(texture.2.clone(), self.sampler.clone())
                 .unwrap()
                 .add_buffer(view.clone())
                 .unwrap()
                 .build()
                 .unwrap();
 
-            cb = cb.draw(
+            cb.draw(
                     self.pipeline.clone(),
-                    state,
+                    state.clone(),
                     vec![self.vertex_buffer.clone()],
                     set,
                     (),
                 )
-                .unwrap();
+                .unwrap()
+        };
+
+        let mut trans: ::na::Transform2<f32> = ::na::one();
+        trans[(0, 0)] *= 2.0;
+        trans[(1, 1)] *= 2.0;
+        cb = draw_image(::Image::Wallpaper, trans, 0.0, cb);
+
+        if let Some(image) = world.write_resource::<::resource::DrawImage>().take() {
+            let mut trans: ::na::Transform2<f32> = ::na::one();
+            cb = draw_image(image, trans, 1.0, cb);
+        }
+
+        let bodies = world.read_storage::<::component::RigidBody>();
+        let images = world.read_storage::<::component::Image>();
+        let physic_world = world.read_resource::<::resource::PhysicWorld>();
+        for (image, body) in (&images, &bodies).join() {
+            let mut trans: ::na::Transform2<f32> = body.get(&physic_world)
+                .position()
+                .to_superset();
+            trans[(0, 0)] *= image.0;
+            trans[(1, 1)] *= image.0;
+            cb = draw_image(image.1, trans, 1.0, cb);
         }
 
         cb.end_render_pass()
@@ -371,12 +404,12 @@ layout(location = 0) in vec2 position;
 layout(location = 0) out vec2 tex_coords;
 
 layout(set = 0, binding = 0) uniform Transform {
-    mat3 trans;
+    mat4 trans;
     float z;
 } transform;
 
 layout(set = 0, binding = 2) uniform View {
-    mat3 view;
+    mat4 view;
 } view;
 
 void main() {
