@@ -2,9 +2,10 @@
 
 This is a basic game showing a way to structure your code with `specs`, `nphysics` (and `vulkano`).
 
-Each users control a ball that have one airjump this airjump is restored on contact with the ground and other balls. The goal is to touch the gong.
+Each users control a ball that have one airjump, this airjump is restored on contact with the ground and other balls. The goal is to touch the gong.
 
-This `README` will explain some concept about the implementation. The most interesting part is integrate nphysics with specs.
+This README will explain some concept about the implementation. The most interesting part is integrate nphysics with specs.
+TODO: CI
 
 ## Entity/Component/System (ECS)
 
@@ -75,7 +76,7 @@ Thus each game state can return self or the next state after each update, or eve
 
 ## Vulkano
 
-There is not much to say here. It shows how to use abstract type of `vulkano`:
+There is not much to say here. It shows how to use abstract type of vulkano:
 
 ```rust
 pub struct Graphics {
