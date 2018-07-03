@@ -5,7 +5,8 @@ This is a basic game showing a way to structure your code with `specs`, `nphysic
 Each users control a ball that have one airjump, this airjump is restored on contact with the ground and other balls. The goal is to touch the gong.
 
 This README will explain some concept about the implementation. The most interesting part is integrate nphysics with specs.
-TODO: CI
+
+Also this repository contains an appveyor script that uses Visual Studio 2013 which is useful to build for old version of windows.
 
 ## Entity/Component/System (ECS)
 
