@@ -107,7 +107,7 @@ The main issue is how to make nphysics world coherent with handles stored in spe
   }
   ```
 
-See the actual implementation in [src/retained_storage.rs]() [src/component.rs]() and [src/main.rs]()
+See the actual implementation in [src/retained_storage.rs](), [src/component.rs]() and [src/main.rs]()
 
 ## Game state
 
