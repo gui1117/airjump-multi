@@ -4,7 +4,7 @@ This is a basic game showing a way to structure your code with `specs`, `nphysic
 
 Each users control a ball that have one airjump, this airjump is restored on contact with the ground and other balls. The goal is to touch the gong.
 
-This README will explain some concept about the implementation. The most interesting part is integrate nphysics with specs.
+This will explain some concept about the implementation. The most interesting part is integrate nphysics with specs.
 
 Also this repository contains an appveyor script that uses Visual Studio 2013 which is useful to build for old versions of windows.
 
@@ -50,12 +50,14 @@ In this game there are:
 This is probably the most interesting part.
 
 Adding a rigid body to the nphysics world returns a handle, this handle can be used to borrow the actual rigid body by borrowing the nphysics world.
-The handle is stored in specs and each system that want to use it must also use the nphysic world resource to actual access the data.
-In order to be able to get the entity corresponding to nphysics body (while raycasting in the physic world for instance), I created a resource BodiesMap that map each body to an entity.
-The main issue is how to make nphysics world coherent with handles stored in specs component and bodies mapping.
+
+The handle is stored in a specs component storage and each system that want to use it must also use the nphysic world resource to actually access the data.
+In order to be able to get the entity corresponding to a rigid body (while raycasting in the physic world for instance), I created a resource BodiesMap that map each body to an entity.
+The main issue is how to make nphysics world coherent with handle specs component storage and bodies mapping.
 
 * Enforce handles stored in specs to actually correspond to an existing nphysics body:
-  I made the component buildable only from method that insert the body in nphysics world and bodies map at the same time as in the specs storage.
+
+  I simply made the component buildable only from method that insert the body in nphysics world and bodies map at the same time as in the specs storage.
   ```rust
   pub fn safe_insert<'a>(
       entity: ::specs::Entity,
@@ -83,9 +85,10 @@ The main issue is how to make nphysics world coherent with handles stored in spe
   ```
 
 * Enforce deletion of entities with a rigid body component to delete body in nphysics world:
-  Here is the real issue: because deleting an entity with a rigid body component deletes only the handle and thus let the body in nphysics world
 
-  A way to do that could be to create a method safe_delete(entity, &rigid_body_handle_component, &mut physic_world, &mut bodies_map) that check if the entity has a
+  Here is the real issue: because deleting an entity with a rigid body component deletes only the handle and let the body in nphysics world
+
+  A way to solve it could be to create a method safe_delete(entity, &rigid_body_handle_component, &mut physic_world, &mut bodies_map) that check if the entity has a
   rigid body handle and if so removes it from the physic world. But this is not handy at all.
 
   A better way is to use a specific storage for body handles that keeps track of removed components. Then we can regularly take the pendings removed handles and remove the corresponding body in nphysics world and bodies map.
