@@ -6,7 +6,11 @@ Each users control a ball that have one airjump, this airjump is restored on con
 
 This will explain some concept about the implementation. The most interesting part is integrate nphysics with specs.
 
-Also this repository contains an appveyor script that uses Visual Studio 2013 which is useful to build for old versions of windows.
+About other way to structure your game:
+* vulkano here can be replaced with more higher level libraries such as ggez, three-rs or piston
+* amethyst does exist, it is a complete game engine and does use specs inside
+
+(Also this repository contains an appveyor script that uses Visual Studio 2013 which can be useful to build for old versions of windows)
 
 ## Entity/Component/System (ECS)
 
