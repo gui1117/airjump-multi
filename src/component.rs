@@ -25,7 +25,7 @@ pub struct Control {
 pub struct Image(pub f32, pub ::Image);
 
 #[derive(Clone)]
-pub struct RigidBody(pub ::nphysics2d::object::BodyHandle);
+pub struct RigidBody(::nphysics2d::object::BodyHandle);
 impl ::specs::Component for RigidBody {
     type Storage = ::retained_storage::RetainedStorage<Self, ::specs::VecStorage<Self>>;
 }
@@ -55,6 +55,10 @@ impl RigidBody {
 
         bodies_handle.insert(entity, RigidBody(body_handle));
         RigidBody(body_handle)
+    }
+
+    pub fn handle(&self) -> ::nphysics2d::object::BodyHandle {
+        self.0
     }
 
     #[inline]

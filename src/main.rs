@@ -67,7 +67,7 @@ pub fn safe_maintain(world: &mut specs::World) {
         .write_storage::<::component::RigidBody>()
         .retained()
         .iter()
-        .map(|r| r.0)
+        .map(|r| r.handle())
         .collect::<Vec<_>>();
     physic_world.remove_bodies(&retained);
     for handle in &retained {

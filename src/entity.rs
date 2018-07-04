@@ -49,7 +49,7 @@ pub fn create_ball(gamepad_id: usize, gamepad_parts: [bool; 2], world: &mut spec
     physic_world.add_collider(
         0.0,
         shape,
-        body_handle.0,
+        body_handle.handle(),
         ::na::one(),
         nphysics2d::object::Material::new(RESTITUTION, FRICTION),
     );
@@ -80,7 +80,7 @@ pub fn create_gong(world: &mut specs::World) {
     physic_world.add_constraint(
         nphysics2d::joint::MouseConstraint::new(
             nphysics2d::object::BodyHandle::ground(),
-            body_handle.0,
+            body_handle.handle(),
             position,
             nphysics2d::math::Point::new(0.0, 0.0),
             GONG_JOINT_LIMIT,
@@ -90,7 +90,7 @@ pub fn create_gong(world: &mut specs::World) {
     physic_world.add_collider(
         0.0,
         shape,
-        body_handle.0,
+        body_handle.handle(),
         ::na::one(),
         nphysics2d::object::Material::new(RESTITUTION, FRICTION),
     );
@@ -154,7 +154,7 @@ pub fn create_walls(world: &mut specs::World) {
     physic_world.add_collider(
         0.0,
         shape,
-        body_handle.0,
+        body_handle.handle(),
         ::na::one(),
         nphysics2d::object::Material::new(RESTITUTION, FRICTION),
     );

@@ -6,14 +6,14 @@ Each users control a ball that have one airjump, this airjump is restored on con
 
 This README will explain some concept about the implementation. The most interesting part is integrate nphysics with specs.
 
-Also this repository contains an appveyor script that uses Visual Studio 2013 which is useful to build for old version of windows.
+Also this repository contains an appveyor script that uses Visual Studio 2013 which is useful to build for old versions of windows.
 
 ## Entity/Component/System (ECS)
 
 ECS is a common pattern used in games.
-Entities are sets of components, Components are structure that holds datas and Systems are function that iterate on components to update their data.
+Entities are sets of components, Components are structure that holds data and Systems are function that iterate on components to update their data.
 
-In this game there is:
+In this game there are:
 * Components:
   * `Airjump(bool)`: whether an airjump is available
   * `AirjumpRestorer`: a flag telling airjump system that a collision with this entity must restore others airjumps
@@ -37,7 +37,7 @@ In this game there is:
         }
     }
     ```
-    * `Controller`: uses gamepad event and sets airjumps impulse
+    * `Controller`: uses gamepad events and `Airjump` component and modifies `RigidBody` position and velocity.
 
 * Entities:
   * ball: `Image`, `Control`, `Airjump`, `AirjumpRestorer`, `Contactor`, `RigidBody`
@@ -45,11 +45,69 @@ In this game there is:
   * walls: `RigidBody`
   * ground: `AirjumpRestorer`, `RigidBody`
 
-## nphysics and specs
+## Integrate nphysics with specs
 
 This is probably the most interesting part.
 
-//TODO
+Adding a rigid body to the nphysics world returns a handle, this handle can be used to borrow the actual rigid body by borrowing the nphysics world.
+The handle is stored in specs and each system that want to use it must also use the nphysic world resource to actual access the data.
+In order to be able to get the entity corresponding to nphysics body (while raycasting in the physic world for instance), I created a resource BodiesMap that map each body to an entity.
+The main issue is how to make nphysics world coherent with handles stored in specs component and bodies mapping.
+
+* Enforce handles stored in specs to actually correspond to an existing nphysics body:
+  I made the component buildable only from method that insert the body in nphysics world and bodies map at the same time as in the specs storage.
+  ```rust
+  pub fn safe_insert<'a>(
+      entity: ::specs::Entity,
+      // position, inertia, ...
+      bodies_handle: &mut ::specs::WriteStorage<'a, ::component::RigidBody>,
+      physic_world: &mut ::resource::PhysicWorld,
+      bodies_map: &mut ::resource::BodiesMap,
+  ) -> Self {
+      let body_handle = physic_world.add_rigid_body(position, inertia ...);
+      bodies_map.insert(body_handle, entity);
+      bodies_handle.insert(entity, RigidBody(body_handle));
+      RigidBody(body_handle)
+  }
+  ```
+
+* Easily get the actual data from the handle by borrowing nphysics world:
+  ```rust
+  pub fn get<'a>(&'a self, physic_world: &'a PhysicWorld) -> &'a RigidBody {
+      physic_world
+          .rigid_body(self.0)
+          .expect("Rigid body in specs does not exist in physic world")
+  }
+
+  pub fn get_mut<'a>( ... idem
+  ```
+
+* Enforce deletion of entities with a rigid body component to delete body in nphysics world:
+  Here is the real issue: because deleting an entity with a rigid body component deletes only the handle and thus let the body in nphysics world
+
+  A way to do that could be to create a method safe_delete(entity, &rigid_body_handle_component, &mut physic_world, &mut bodies_map) that check if the entity has a
+  rigid body handle and if so removes it from the physic world. But this is not handy at all.
+
+  A better way is to use a specific storage for body handles that keeps track of removed components. Then we can regularly take the pendings removed handles and remove the corresponding body in nphysics world and bodies map.
+  Pseudo code:
+  ```rust
+  pub struct RigidBody(BodyHandle);
+  impl ::specs::Component for RigidBody {
+      type Storage = RetainedStorage<Self>;
+  }
+
+  pub fn safe_maintain(world: &mut specs::World) {
+      world.maintain();
+      let mut physic_world = world.write_resource::<::resource::PhysicWorld>();
+      let mut bodies_map = world.write_resource::<::resource::BodiesMap>();
+
+      let retained = world.write_storage::<::component::RigidBody>().get_pending_handles();
+      physic_world.remove_bodies(&retained);
+      bodies_map.remove_bodies(&retained);
+  }
+  ```
+
+See the actual implementation in [src/retained_storage.rs]() [src/component.rs]() and [src/main.rs]()
 
 ## Game state
 
