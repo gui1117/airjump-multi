@@ -110,7 +110,7 @@ The main issue is how to make nphysics world coherent with handle specs componen
   }
   ```
 
-See the actual implementation in [src/retained_storage.rs](), [src/component.rs]() and [src/main.rs]()
+See the actual implementation in [retained_storage](src/retained_storage.rs), [components](src/component.rs) and [main](src/main.rs)
 
 ## Game state
 
