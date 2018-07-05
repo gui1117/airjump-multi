@@ -1,5 +1,9 @@
 # Airjump Multi
 
+**2 players game requiring at least one controller**
+
+![capture](capture.png)
+
 This is a basic game showing a way to structure your code with `specs`, `nphysics` (and `vulkano`).
 
 Each users control a ball that have one airjump, this airjump is restored on contact with the ground and other balls. The goal is to touch the gong.
