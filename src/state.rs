@@ -152,7 +152,7 @@ pub struct Play;
 impl GameState for Play {
     fn update(self: Box<Self>, world: &mut specs::World) -> Box<GameState> {
         let controls = world.read_storage::<::component::Control>();
-        if controls.join().count() < 20 {
+        if controls.join().count() < 2 {
             return Box::new(Start)
         }
         self
