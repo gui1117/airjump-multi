@@ -28,6 +28,8 @@ mod system;
 mod state;
 mod retained_storage;
 
+use specs::Join;
+
 #[derive(EnumIterator, Eq, PartialEq, Hash, Clone, Copy)]
 pub enum Image {
     Start,
@@ -107,7 +109,7 @@ fn main() {
     let mut last_frame_instant = std::time::Instant::now();
     let mut last_update_instant = std::time::Instant::now();
 
-    let mut state = Box::new(state::Start) as Box<state::GameState>;
+    let mut state = Box::new(state::Play) as Box<state::GameState>;
     loop {
         // Poll events
         let mut done = false;
@@ -133,6 +135,17 @@ fn main() {
         }
         while let Some(ev) = gilrs.next_event() {
             gilrs.update(&ev);
+            // Remove entities for disconnected controllers
+            // (this is ugly but we should have a system for that)
+            {
+                let controls = world.read_storage::<::component::Control>();
+                let entities = world.entities();
+                if ev.event == gilrs::ev::EventType::Disconnected {
+                    for (_, entity) in (&controls, &*entities).join().filter(|(c, _)| c.gamepad_id == ev.id) {
+                        entities.delete(entity).unwrap();
+                    }
+                }
+            }
             state = state.event(ev, &mut world);
         }
         for (id, gamepad) in gilrs.gamepads() {
@@ -145,7 +158,7 @@ fn main() {
         // Update world
         let delta_time = last_update_instant.elapsed();
         last_update_instant = std::time::Instant::now();
-        if !state.paused() {
+        if !state.paused(&world) {
             world.write_resource::<::resource::UpdateTime>().0 = delta_time
                 .as_secs()
                 .saturating_mul(1_000_000_000)

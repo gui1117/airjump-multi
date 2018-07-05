@@ -17,42 +17,7 @@ pub trait GameState {
     fn quit(&self) -> bool {
         false
     }
-    fn paused(&self) -> bool;
-}
-
-pub struct Start;
-
-impl GameState for Start {
-    fn update(self: Box<Self>, world: &mut specs::World) -> Box<GameState> {
-        let controls = world.read_storage::<::component::Control>();
-        let count = controls.join().count();
-        if count == 0 {
-            world.write_resource::<::resource::DrawImage>().0 = Some(::Image::Start);
-        } else if count == 1 {
-            world.write_resource::<::resource::DrawImage>().0 = Some(::Image::Wait);
-        } else {
-            eprintln!("invalid state");
-            return Box::new(Play);
-        }
-        self
-    }
-    fn event(self: Box<Self>, event: gilrs::ev::Event, _world: &mut specs::World)
-        -> Box<GameState>
-    {
-        Box::new(NewController { id: event.id })
-    }
-    fn gamepad(
-        self: Box<Self>,
-        _id: usize,
-        _gamepad: &::gilrs::Gamepad,
-        _world: &mut specs::World,
-    ) -> Box<GameState>
-    {
-        self
-    }
-    fn paused(&self) -> bool {
-        true
-    }
+    fn paused(&self, world: &specs::World) -> bool;
 }
 
 pub struct NewController {
@@ -99,7 +64,7 @@ impl GameState for NewController {
     {
         self
     }
-    fn paused(&self) -> bool {
+    fn paused(&self, _world: &specs::World) -> bool {
         true
     }
 }
@@ -142,7 +107,7 @@ impl GameState for ShowImage {
     {
         self
     }
-    fn paused(&self) -> bool {
+    fn paused(&self, _world: &specs::World) -> bool {
         true
     }
 }
@@ -152,8 +117,11 @@ pub struct Play;
 impl GameState for Play {
     fn update(self: Box<Self>, world: &mut specs::World) -> Box<GameState> {
         let controls = world.read_storage::<::component::Control>();
-        if controls.join().count() < 2 {
-            return Box::new(Start)
+        let count = controls.join().count();
+        if count == 0 {
+            world.write_resource::<::resource::DrawImage>().0 = Some(::Image::Start);
+        } else if count == 1 {
+            world.write_resource::<::resource::DrawImage>().0 = Some(::Image::Wait);
         }
         self
     }
@@ -161,14 +129,8 @@ impl GameState for Play {
         -> Box<GameState>
     {
         let controls = world.read_storage::<::component::Control>();
-        let entities = world.entities();
         if controls.join().filter(|c| c.gamepad_id == event.id).next().is_none() {
             return Box::new(NewController { id: event.id })
-        }
-        if event.event == gilrs::ev::EventType::Disconnected {
-            for (_, entity) in (&controls, &*entities).join().filter(|(c, _)| c.gamepad_id == event.id) {
-                entities.delete(entity).unwrap();
-            }
         }
         self
     }
@@ -216,7 +178,9 @@ impl GameState for Play {
         }
         self
     }
-    fn paused(&self) -> bool {
-        false
+    fn paused(&self, world: &specs::World) -> bool {
+        let controls = world.read_storage::<::component::Control>();
+        let count = controls.join().count();
+        count < 2
     }
 }
